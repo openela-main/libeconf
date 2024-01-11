@@ -1,0 +1,31 @@
+From 8d086dfc69d4299e55e4844e3573b3a4cf420f19 Mon Sep 17 00:00:00 2001
+From: Stefan Schubert <stefan@gefluegelhof-schubert.de>
+Date: Fri, 24 Mar 2023 15:14:07 +0100
+Subject: [PATCH] Aarch64 gcc13 (#183)
+
+* fixed buffer overflow
+---
+ lib/getfilecontents.c | 7 +++----
+ 4 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/lib/getfilecontents.c b/lib/getfilecontents.c
+index 94e1db9..f9b1afc 100644
+--- a/lib/getfilecontents.c
++++ b/lib/getfilecontents.c
+@@ -265,11 +265,12 @@ read_file(econf_file *ef, const char *file,
+   }
+   ef->delimiter = *delim;
+ 
+-  while (fgets(buf, sizeof(buf), kf)) {
++  while (fgets(buf, BUFSIZ-1, kf)) {
+     char *p, *name, *data = NULL;
+     bool quote_seen = false, delim_seen = false;
+     char *org_buf __attribute__ ((__cleanup__(free_buffer))) = strdup(buf);
+ 
++    buf[BUFSIZ-1] = '\0';
+     line++;
+     last_scanned_line_nr = line;
+ 
+-- 
+2.40.1
+
