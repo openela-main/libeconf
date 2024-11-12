@@ -1,0 +1,54 @@
+diff --git a/lib/libeconf.c b/lib/libeconf.c
+index d7de070..c6a7c73 100644
+--- a/lib/libeconf.c
++++ b/lib/libeconf.c
+@@ -158,7 +158,7 @@ econf_err econf_readDirsHistory(econf_file ***key_files,
+ {
+   const char *suffix, *default_dirs[3] = {NULL, NULL, NULL};
+   char *distfile, *etcfile, *cp;
+-  econf_file *key_file;
++  econf_file *key_file = NULL;
+   econf_err error;
+ 
+   *size = 0;
+@@ -267,8 +267,12 @@ econf_err econf_readDirsHistory(econf_file ***key_files,
+     const char *conf_dirs[] = {  NULL, /* "/conf.d/", ".d/", "/", */ NULL};
+     char *project_path = combine_strings(default_dirs[i], project_name, '/');
+     char *suffix_d = malloc (strlen(suffix) + 4); /* + strlen(".d/") */
+-    if (suffix_d == NULL)
++    if (suffix_d == NULL) {
++      free(project_path);
++      free(*key_files);
++      *key_files = NULL;
+       return ECONF_NOMEM;
++    }
+     cp = stpcpy(suffix_d, suffix);
+     stpcpy(cp, ".d");
+     conf_dirs[0] = suffix_d;
+diff --git a/lib/libeconf_ext.c b/lib/libeconf_ext.c
+index aafba45..6155a0c 100644
+--- a/lib/libeconf_ext.c
++++ b/lib/libeconf_ext.c
+@@ -86,15 +86,19 @@ econf_getExtValue(econf_file *kf, const char *group,
+   {
+     /* one quoted string only */
+     (*result)->values = realloc ((*result)->values, sizeof (char*) * ++n_del);
+-    if ((*result)->values == NULL)
++    if ((*result)->values == NULL) {
++      econf_freeExtValue(*result);
+       return ECONF_NOMEM; /* memory allocation failed */
++    }
+     (*result)->values[n_del-1] = strdup(value_string);
+   } else {
+     /* splitting into a character array */
+     while ((line = strsep(&value_string, "\n")) != NULL) {
+       (*result)->values = realloc ((*result)->values, sizeof (char*) * ++n_del);
+-      if ((*result)->values == NULL)
+-	return ECONF_NOMEM; /* memory allocation failed */
++      if ((*result)->values == NULL) {
++        econf_freeExtValue(*result);
++	      return ECONF_NOMEM; /* memory allocation failed */
++      }
+       (*result)->values[n_del-1] = strdup(trim(line));
+     }
+   }

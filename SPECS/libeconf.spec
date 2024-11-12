@@ -5,7 +5,7 @@
 
 Name:           libeconf
 Version:        0.4.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Enhanced config file parser library
 
 License:        MIT
@@ -15,6 +15,9 @@ Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
 
 ### Patches ###
 Patch0001: 0001-getfilecontents-buffer-overflow.patch
+Patch0002: 0002-cmake-no-install-html.patch
+# https://github.com/openSUSE/libeconf/commit/7c5d0a7198eb97104952e56e43c37eb337c3cf21
+Patch0003: 0003-Fix-static-analyzer-detected-issues.patch
 
 BuildRequires:  cmake >= 3.12
 BuildRequires:  gcc
@@ -80,6 +83,9 @@ configuration files from applications that use %{name}.
 
 
 %changelog
+* Thu Apr 11 2024 Iker Pedrosa <ipedrosa@redhat.com> - 0.4.1-4
+- Fix static analyzer detected issues. Resolves: RHEL-24989
+
 * Wed Jun  7 2023 Iker Pedrosa <ipedrosa@redhat.com> - 0.4.1-3
 - Fix stack-based buffer overflow in read_file(). Resolves: #2212467 (CVE-2023-22652)
 
