@@ -1,0 +1,103 @@
+From 6f8c673a181762931d5997bc5e7bea9c69d0b7cb Mon Sep 17 00:00:00 2001
+From: Iker Pedrosa <ipedrosa@redhat.com>
+Date: Wed, 15 May 2024 09:02:53 +0200
+Subject: [PATCH] Fix static analyzer detected issues (#202)
+
+Error: UNINIT (CWE-457):
+libeconf-0.6.2/lib/helpers.c:217:3: var_decl: Declaring variable "copied_fe" without initializer.
+libeconf-0.6.2/lib/helpers.c:233:3: uninit_use: Using uninitialized value "copied_fe". Field "copied_fe.quotes" is uninitialized.
+231|       copied_fe.comment_after_value = NULL;
+232|     copied_fe.line_number = fe.line_number;
+233|->   return copied_fe;
+234|   }
+
+Error: UNINIT (CWE-457):
+libeconf-0.6.2/lib/readconfig.c:30:3: var_decl: Declaring variable "suffix" without initializer.
+libeconf-0.6.2/lib/readconfig.c:201:5: uninit_use_in_call: Using uninitialized value "suffix" when calling "traverse_conf_dirs".
+199|     while (default_dirs[i]) {
+200|       char *project_path = combine_strings(default_dirs[i], config_name, '/');
+201|->     error = traverse_conf_dirs(key_files, configure_dirs, size, project_path,
+202|   			       suffix, delim, comment, callback, callback_data);
+203|       free(project_path);
+
+Error: UNINIT (CWE-457):
+libeconf-0.6.2/lib/readconfig.c:30:3: var_decl: Declaring variable "suffix" without initializer.
+libeconf-0.6.2/lib/readconfig.c:172:5: uninit_use_in_call: Using uninitialized value "suffix" when calling "strlen".
+170|     if (conf_count == 0)
+171|     {
+172|->     char *suffix_d = malloc (strlen(suffix) + 4); /* + strlen(".d/") */
+173|       if (suffix_d == NULL) {
+174|         free(*key_files);
+
+Error: RESOURCE_LEAK (CWE-772):
+libeconf-0.6.2/lib/readconfig.c:162:3: alloc_fn: Storage is returned from allocation function "malloc".
+libeconf-0.6.2/lib/readconfig.c:162:3: var_assign: Assigning: "configure_dirs" = storage returned from "malloc(8UL * (conf_count + 2))".
+libeconf-0.6.2/lib/readconfig.c:176:7: leaked_storage: Variable "configure_dirs" going out of scope leaks the storage it points to.
+174|         free(*key_files);
+175|         *key_files = NULL;
+176|->       return ECONF_NOMEM;
+177|       }
+178|       cp = stpcpy(suffix_d, suffix);
+
+Error: CPPCHECK_WARNING (CWE-401):
+libeconf-0.6.2/lib/readconfig.c:176: error[memleak]: Memory leak: configure_dirs
+174|         free(*key_files);
+175|         *key_files = NULL;
+176|->       return ECONF_NOMEM;
+177|       }
+178|       cp = stpcpy(suffix_d, suffix);
+```
+
+Resolves: https://issues.redhat.com/browse/RHEL-35252
+
+Signed-off-by: Iker Pedrosa <ipedrosa@redhat.com>
+---
+ lib/helpers.c    | 1 +
+ lib/readconfig.c | 6 +++---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/lib/helpers.c b/lib/helpers.c
+index 3e1541a..8c82510 100644
+--- a/lib/helpers.c
++++ b/lib/helpers.c
+@@ -230,5 +230,6 @@ struct file_entry cpy_file_entry(struct file_entry fe) {
+   else
+     copied_fe.comment_after_value = NULL;  
+   copied_fe.line_number = fe.line_number;
++  copied_fe.quotes = false;
+   return copied_fe;
+ }
+diff --git a/lib/readconfig.c b/lib/readconfig.c
+index 419e0f3..9948e6a 100644
+--- a/lib/readconfig.c
++++ b/lib/readconfig.c
+@@ -27,7 +27,8 @@ econf_err readConfigHistoryWithCallback(econf_file ***key_files,
+ 					bool (*callback)(const char *filename, const void *data),
+ 					const void *callback_data)
+ {
+-  const char *suffix, *default_dirs[4] = {NULL, NULL, NULL, NULL};
++  const char *suffix = "";
++  const char *default_dirs[4] = {NULL, NULL, NULL, NULL};
+   char *distfile, *runfile, *etcfile, *cp;
+   econf_file *key_file = NULL;
+   econf_err error;
+@@ -52,8 +53,6 @@ econf_err readConfigHistoryWithCallback(econf_file ***key_files,
+ 	  strcpy(cp+1, config_suffix);
+ 	  suffix = cp;
+         }
+-    } else {
+-      suffix = "";
+     }
+ 
+     /* create file names for etc, run and distribution config */
+@@ -173,6 +172,7 @@ econf_err readConfigHistoryWithCallback(econf_file ***key_files,
+     if (suffix_d == NULL) {
+       free(*key_files);
+       *key_files = NULL;
++      econf_freeArray(configure_dirs);
+       return ECONF_NOMEM;
+     }
+     cp = stpcpy(suffix_d, suffix);
+-- 
+2.45.2
+
