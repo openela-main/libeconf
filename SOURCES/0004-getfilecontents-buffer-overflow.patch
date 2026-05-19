@@ -1,0 +1,67 @@
+From 732ef9161ef29bf54d6d5e0d4c19b663aad678c6 Mon Sep 17 00:00:00 2001
+From: Ignaz Forster <iforster@suse.com>
+Date: Wed, 4 Aug 2021 13:57:46 +0200
+Subject: [PATCH] Allocate fixed length filename buffer
+
+Valgrind found a memory leak when calling
+
+econf_file *kf;
+econf_readFile(&kf, "test.ini", "=", "#");
+econf_freeFile(kf);
+
+This is caused by the global variable last_scanned_filename which is
+assigned dynamically and thus won't be free'd on exit.
+Just use fixed size array instead.
+
+Also declare the global variables static while at it.
+---
+ lib/getfilecontents.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/lib/getfilecontents.c b/lib/getfilecontents.c
+index f03ab8f..f4944ee 100644
+--- a/lib/getfilecontents.c
++++ b/lib/getfilecontents.c
+@@ -27,14 +27,15 @@
+ #include "helpers.h"
+ 
+ #include <errno.h>
++#include <limits.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <ctype.h>
+ 
+ /*info for reporting scan errors (line Nr, filename) */
+-uint64_t last_scanned_line_nr = 0;
+-char *last_scanned_filename = NULL;
++static uint64_t last_scanned_line_nr = 0;
++static char last_scanned_filename[PATH_MAX];
+ 
+ static econf_err
+ join_same_entries(econf_file *ef)
+@@ -243,13 +244,7 @@ read_file(econf_file *ef, const char *file,
+   if (kf == NULL)
+     return ECONF_NOFILE;
+ 
+-  if (last_scanned_filename != NULL)
+-    free(last_scanned_filename);
+-  last_scanned_filename = strdup(file);
+-  if (last_scanned_filename == NULL) {
+-    fclose (kf);
+-    return ECONF_NOMEM;
+-  }
++  snprintf(last_scanned_filename, sizeof(last_scanned_filename), "%s", file);
+ 
+   check_delim(delim, &has_wsp, &has_nonwsp);
+ 
+@@ -508,5 +503,5 @@ read_file(econf_file *ef, const char *file,
+ void last_scanned_file(char **filename, uint64_t *line_nr)
+ {
+   *line_nr = last_scanned_line_nr;
+-  *filename = last_scanned_filename ? strdup(last_scanned_filename) : NULL;
++  *filename = strdup(last_scanned_filename);
+ }
+-- 
+2.51.0
+
