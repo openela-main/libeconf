@@ -5,7 +5,7 @@
 
 Name:           libeconf
 Version:        0.4.1
-Release:        5%{?dist}
+Release:        7%{?dist}
 Summary:        Enhanced config file parser library
 
 License:        MIT
@@ -85,6 +85,9 @@ configuration files from applications that use %{name}.
 
 
 %changelog
+* Wed Apr  8 2026 Iker Pedrosa <ipedrosa@redhat.com> - 0.4.1-6
+- Add libeconf-devel to a public repo. Resolves: RHEL-126957
+
 * Tue Dec  9 2025 Iker Pedrosa <ipedrosa@redhat.com> - 0.4.1-5
 - Avoid double-free memory corruption. Resolves: RHEL-130877
 
